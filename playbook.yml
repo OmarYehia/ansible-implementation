@@ -1,0 +1,53 @@
+---
+- hosts: all
+  become: yes
+  vars_files:
+          - hosts.yml
+  tasks:
+          - name: Install apache2
+            ansible.builtin.package:
+                    name: apache2
+                    state: present
+            notify: Restart my apache
+
+          - name: Install firewalld
+            ansible.builtin.package:
+                    name: firewalld
+                    state: present
+            notify: Restart my apache
+
+          - name: Making a default html file
+            ansible.builtin.copy:
+                    src: "index.html"
+                    dest: "/var/www/html/"
+                    owner: www-data
+                    group: www-data
+                    mode: 0664
+
+          - name: Configuring VirtualHost
+            template:
+                    src: "apache.conf"
+                    dest: "/etc/apache2/sites-available/{{ http_conf }}"
+
+          - name: Creating document root
+            file:
+                    path: "/var/www/html/{{ http_host }}"
+                    state: directory
+                    owner: "{{ app_user }}"
+                    mode: 0755
+
+          - name: Copying index file to the VirtualHost
+            template:
+                    src: "index.html"
+                    dest: "/var/www/html/{{ http_host }}/index.html"
+
+          - name: Enable the site
+            shell: /usr/sbin/a2ensite {{ http_conf }}
+            notify: Restart my apache
+
+
+
+  handlers:
+          - name: Restart my apache
+            ansible.builtin.service:
+                    name: apache2
